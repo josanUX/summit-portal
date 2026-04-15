@@ -1,7 +1,7 @@
 .llm-app {
   border-radius: var(--spacing-s);
   border: 1px solid var(--color-border);
-  background-color: var(--color-surface);
+  background-color: var(--rpt-insight-section-bg);
   color: var(--color-text);
   overflow: hidden;
 
