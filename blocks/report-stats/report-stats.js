@@ -149,11 +149,34 @@ const BADGE_ICONS = {
   critical: CRITICAL_ICON,
 };
 
+/**
+ * Dark strip: performance score first, monthly visits second; other rows keep
+ * their relative order. Matches labels case-insensitively on first cell text.
+ * @param {Element[]} rows
+ * @returns {Element[]}
+ */
+function sortDarkStatRows(rows) {
+  const labelOf = (row) => (row.children[0]?.textContent.trim().toLowerCase() || '');
+  const isPerformanceScore = (row) => {
+    const l = labelOf(row);
+    return l.includes('performance') && l.includes('score');
+  };
+  const isMonthlyVisits = (row) => {
+    const l = labelOf(row);
+    return l.includes('monthly') && (l.includes('visit') || l.includes('visits'));
+  };
+
+  const perf = rows.filter(isPerformanceScore);
+  const monthly = rows.filter(isMonthlyVisits);
+  const rest = rows.filter((row) => !isPerformanceScore(row) && !isMonthlyVisits(row));
+  return [...perf, ...monthly, ...rest];
+}
+
 function buildDarkStats(el, rows) {
   const strip = document.createElement('div');
   strip.className = 'rs-dark-strip';
 
-  rows.forEach((row) => {
+  sortDarkStatRows(rows).forEach((row) => {
     const cells = [...row.children];
     const label = cells[0]?.textContent.trim() || '';
     const value = cells[1]?.textContent.trim() || '';

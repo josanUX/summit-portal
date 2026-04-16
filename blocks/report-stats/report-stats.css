@@ -134,12 +134,14 @@
   font-size: 14px;
   font-weight: 500;
   color: light-dark(#fff, #111);
+  margin-bottom: -8px;
 }
 
 .report-stats.dark .rs-dark-value-row {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding-bottom: 8px;
 }
 
 .report-stats.dark .rs-dark-value {

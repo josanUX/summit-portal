@@ -505,7 +505,7 @@
 .report-carousel .rc-nav-label {
   font-size: 14px;
   font-weight: 400;
-  color: light-dark(#6b7280, #9ca3af);
+  color: light-dark(#505050, #ccc);
 }
 
 .report-carousel .rc-nav-btn {
@@ -718,7 +718,7 @@
   gap: 12px;
   padding: 20px 24px;
   border-radius: 16px;
-  background: light-dark(#f8f8f8, #1a1a1a);
+  background: light-dark(#f8f8f8, #2a2a2a);
   border: none;
 }
 

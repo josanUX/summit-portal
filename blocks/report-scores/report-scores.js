@@ -8,11 +8,9 @@ function gradeClass(score) {
 function formatPageUrl(href) {
   try {
     const u = new URL(href);
-    const display = u.hostname.replace(/^www\./, '') + (u.pathname === '/' ? '/' : u.pathname);
-    if (display.length > 44) return `${display.slice(0, 42)}…`;
-    return display;
+    return u.hostname.replace(/^www\./, '') + (u.pathname === '/' ? '/' : u.pathname);
   } catch {
-    return href.length > 44 ? `${href.slice(0, 42)}…` : href;
+    return href;
   }
 }
 
@@ -134,6 +132,7 @@ export default function init(el) {
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
       link.textContent = pageName;
+      link.title = pageName;
       name.append(link);
     } else {
       name.textContent = pageName;
@@ -142,9 +141,13 @@ export default function init(el) {
     headerText.append(name);
 
     if (pageUrl) {
-      const urlLine = document.createElement('p');
+      const urlLine = document.createElement('a');
       urlLine.className = 'rsc-page-url';
+      urlLine.href = pageUrl;
+      urlLine.target = '_blank';
+      urlLine.rel = 'noopener noreferrer';
       urlLine.textContent = formatPageUrl(pageUrl);
+      urlLine.title = pageUrl;
       headerText.append(urlLine);
     }
 
