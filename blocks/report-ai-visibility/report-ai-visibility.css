@@ -20,7 +20,7 @@
   margin-bottom: 0;
   background: transparent;
   border: none;
-  border-bottom: 2px solid light-dark(rgba(243, 243, 243, 1), #444);
+  border-bottom: 2px solid light-dark(rgb(243 243 243 / 100%), #444);
 }
 
 .report-ai-visibility .rav-section-title {
@@ -58,7 +58,7 @@
   border-top: none;
   border-right: none;
   border-left: none;
-  border-bottom: 2px solid light-dark(rgba(243, 243, 243, 1), #444);
+  border-bottom: 2px solid light-dark(rgb(243 243 243 / 100%), #444);
 }
 
 .report-ai-visibility .rav-stat-card {
@@ -249,7 +249,7 @@
 
 .report-ai-visibility .rav-panel-footnote {
   font-size: 12px;
-  color: light-dark(rgba(80, 80, 80, 1), #cccccc);
+  color: light-dark(rgb(80 80 80 / 100%), #ccc);
   margin: 0;
   padding-top: 10px;
   border-top: 1px solid var(--rpt-border, var(--color-border));
@@ -511,7 +511,7 @@
   width: 100%;
   padding: 16px 56px 16px 64px;
   border: 0 solid transparent;
-  border-top: 2px solid light-dark(rgba(243, 243, 243, 1), #444);
+  border-top: 2px solid light-dark(rgb(243 243 243 / 100%), #444);
 }
 
 .report-ai-visibility .rav-cta-left {
@@ -734,4 +734,16 @@
     text-align: center;
     line-height: 1.25;
   }
+}
+
+/* Page performance cards (report-scores) nested under Performance insights shell */
+.report-ai-visibility.rav-empty-shell .rav-panels-outer > .report-scores {
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.report-ai-visibility.rav-empty-shell .rav-panels-outer > .report-scores .rsc-grid {
+  box-sizing: border-box;
+  padding: 8px 12px 16px;
 }

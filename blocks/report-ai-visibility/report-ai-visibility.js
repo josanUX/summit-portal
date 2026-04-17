@@ -147,15 +147,35 @@ export default async function decorate(block) {
 
   const perfPanelsOuter = performanceShell.querySelector('.rav-panels-outer');
   if (perfPanelsOuter) {
-    let sib = performanceShell.nextElementSibling;
-    while (sib) {
-      const { nextElementSibling } = sib;
-      if (sib.classList.contains('report-scores')) {
-        perfPanelsOuter.prepend(sib);
-        break;
+    const isScores = (el) => el?.classList.contains('report-scores');
+    const section = block.closest('.section');
+    const inSection = section
+      ? [...section.querySelectorAll('.report-scores')]
+        .filter((el) => el !== block && !performanceShell.contains(el) && !el.contains(block))
+      : [];
+    const fromSection = inSection[0];
+    let strip = fromSection;
+    if (!strip) {
+      let s = performanceShell.nextElementSibling;
+      while (s) {
+        if (isScores(s)) {
+          strip = s;
+          break;
+        }
+        s = s.nextElementSibling;
       }
-      sib = nextElementSibling;
     }
+    if (!strip) {
+      let s = block.previousElementSibling;
+      while (s) {
+        if (isScores(s)) {
+          strip = s;
+          break;
+        }
+        s = s.previousElementSibling;
+      }
+    }
+    if (strip) perfPanelsOuter.prepend(strip);
   }
 
   const observer = new IntersectionObserver((entries) => {
