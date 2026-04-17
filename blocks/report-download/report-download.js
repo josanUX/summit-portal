@@ -5,16 +5,146 @@
  *   Cell 1: Bold heading paragraph | description paragraph(s)
  *   Cell 2: Link (report title + download href) | metadata paragraphs (date, pages, …).
  *   Paragraphs may be nested (e.g. default-content wrapper); any <p> in the cell is scanned.
+ *   Rows with 3+ columns use the last column as the PDF cell.
+ *   A single wrapper row may nest two inner columns.
  */
+
+/** @param {Element} row */
+function resolveRowCells(row) {
+  const cells = [...row.children].filter((n) => n.nodeType === 1);
+  if (cells.length >= 2) {
+    return { leftCell: cells[0], rightCell: cells[cells.length - 1] };
+  }
+  if (cells.length === 1) {
+    const inner = [...cells[0].children].filter((n) => n.nodeType === 1);
+    if (inner.length >= 2) {
+      return { leftCell: inner[0], rightCell: inner[inner.length - 1] };
+    }
+  }
+  return { leftCell: cells[0], rightCell: cells[1] };
+}
+
+const GENERIC_LINK_LABEL = /^(download|pdf|click here|read more|open|here)$/i;
+
+/** @param {string} t */
+function meaningfulTitle(t) {
+  const s = (t || '').trim();
+  if (!s || GENERIC_LINK_LABEL.test(s)) return '';
+  return s;
+}
+
+/**
+ * @param {Element | undefined} rightCell
+ * @returns {{ downloadHref: string, cardTitle: string, metaItems: string[] }}
+ */
+function extractPdfColumn(rightCell) {
+  let downloadHref = '#';
+  let cardTitle = '';
+  const metaItems = [];
+
+  if (!rightCell) return { downloadHref, cardTitle, metaItems };
+
+  const paragraphs = [...rightCell.querySelectorAll('p')];
+  const linkCandidates = [...rightCell.querySelectorAll('a[href]')].filter((a) => {
+    const h = (a.getAttribute('href') || '').trim();
+    if (!h || h === '#') return false;
+    try {
+      const u = new URL(h, window.location.href);
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch {
+      return h.startsWith('/') || h.startsWith('./') || h.startsWith('../');
+    }
+  });
+
+  const primaryLink = linkCandidates.find((a) => {
+    const h = (a.getAttribute('href') || '').toLowerCase();
+    return h.includes('.pdf') || h.includes('/content/') || h.includes('media_');
+  }) || linkCandidates[0];
+
+  if (primaryLink) {
+    downloadHref = primaryLink.href || '#';
+    cardTitle = meaningfulTitle(primaryLink.textContent)
+      || meaningfulTitle(primaryLink.getAttribute('aria-label'))
+      || meaningfulTitle(primaryLink.getAttribute('title'));
+    const img = primaryLink.querySelector('img');
+    if (!cardTitle && img) {
+      cardTitle = meaningfulTitle(img.getAttribute('alt') || '');
+    }
+    if (!cardTitle) {
+      const par = primaryLink.closest('p');
+      if (par) {
+        const rest = par.cloneNode(true);
+        rest.querySelectorAll('a').forEach((a) => a.remove());
+        cardTitle = meaningfulTitle(rest.textContent);
+      }
+    }
+    if (!cardTitle) {
+      const prev = primaryLink.previousElementSibling;
+      if (prev && ['STRONG', 'EM', 'SPAN', 'B', 'I'].includes(prev.tagName)) {
+        cardTitle = meaningfulTitle(prev.textContent);
+      }
+    }
+    if (!cardTitle) {
+      const par = primaryLink.closest('p');
+      const prevP = par?.previousElementSibling;
+      if (prevP && prevP.tagName === 'P') {
+        const clone = prevP.cloneNode(true);
+        clone.querySelectorAll('a').forEach((a) => a.remove());
+        cardTitle = meaningfulTitle(clone.textContent);
+      }
+    }
+  }
+
+  if (!cardTitle) {
+    const strong = rightCell.querySelector('strong, b');
+    if (strong) cardTitle = meaningfulTitle(strong.textContent);
+  }
+
+  if (!cardTitle) {
+    const li = rightCell.querySelector('li');
+    if (li) {
+      const clone = li.cloneNode(true);
+      clone.querySelectorAll('a').forEach((a) => a.remove());
+      cardTitle = meaningfulTitle(clone.textContent);
+    }
+  }
+
+  if (!cardTitle) {
+    const h = rightCell.querySelector('h2, h3, h4');
+    if (h) cardTitle = meaningfulTitle(h.textContent);
+  }
+
+  if (!cardTitle && downloadHref !== '#') {
+    try {
+      const { pathname } = new URL(downloadHref, window.location.href);
+      const seg = pathname.split('/').filter(Boolean).pop() || '';
+      const base = seg.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim();
+      if (base) cardTitle = decodeURIComponent(base);
+    } catch {
+      /* keep empty */
+    }
+  }
+
+  paragraphs.forEach((p) => {
+    if (primaryLink && p.contains(primaryLink)) return;
+    const text = p.textContent.trim();
+    if (text) metaItems.push(text);
+  });
+
+  return { downloadHref, cardTitle, metaItems };
+}
+
 export default function init(el) {
   const row = el.querySelector(':scope > div');
   if (!row) return;
 
-  const [leftCell, rightCell] = [...row.children];
+  const { leftCell, rightCell } = resolveRowCells(row);
 
   // --- Left column: heading + description ---
   const left = document.createElement('div');
   left.className = 'rd-left';
+
+  let leftSectionHeading = '';
 
   if (leftCell) {
     [...leftCell.children].forEach((child) => {
@@ -25,6 +155,7 @@ export default function init(el) {
           const heading = document.createElement('h2');
           heading.className = 'rd-heading';
           heading.textContent = strong.textContent.trim();
+          leftSectionHeading = heading.textContent.trim();
           left.append(heading);
           return;
         }
@@ -42,70 +173,13 @@ export default function init(el) {
   const right = document.createElement('div');
   right.className = 'rd-right';
 
-  let downloadHref = '#';
-  let cardTitle = '';
-  const metaItems = [];
+  const {
+    downloadHref,
+    cardTitle: extractedTitle,
+    metaItems,
+  } = extractPdfColumn(rightCell);
 
-  if (rightCell) {
-    const paragraphs = [...rightCell.querySelectorAll('p')];
-    const linkCandidates = [...rightCell.querySelectorAll('a[href]')].filter((a) => {
-      const h = (a.getAttribute('href') || '').trim();
-      if (!h || h === '#') return false;
-      try {
-        const u = new URL(h, window.location.href);
-        return u.protocol === 'http:' || u.protocol === 'https:';
-      } catch {
-        return h.startsWith('/') || h.startsWith('./') || h.startsWith('../');
-      }
-    });
-
-    /** Prefer a “document” link; fall back to first usable anchor in the cell */
-    const primaryLink = linkCandidates.find((a) => {
-      const h = (a.getAttribute('href') || '').toLowerCase();
-      return h.includes('.pdf') || h.includes('/content/') || h.includes('media_');
-    }) || linkCandidates[0];
-
-    if (primaryLink) {
-      downloadHref = primaryLink.href || '#';
-      cardTitle = primaryLink.textContent.trim();
-      if (!cardTitle) {
-        const par = primaryLink.closest('p');
-        if (par) {
-          const rest = par.cloneNode(true);
-          rest.querySelectorAll('a').forEach((a) => a.remove());
-          cardTitle = rest.textContent.trim();
-        }
-      }
-      if (!cardTitle) {
-        const prev = primaryLink.previousElementSibling;
-        if (prev && ['STRONG', 'EM', 'SPAN'].includes(prev.tagName)) {
-          cardTitle = prev.textContent.trim();
-        }
-      }
-    }
-
-    if (!cardTitle) {
-      const h = rightCell.querySelector('h2, h3, h4');
-      if (h) cardTitle = h.textContent.trim();
-    }
-
-    if (!cardTitle && downloadHref !== '#') {
-      try {
-        const { pathname } = new URL(downloadHref, window.location.href);
-        const seg = pathname.split('/').filter(Boolean).pop() || '';
-        const base = seg.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim();
-        if (base) cardTitle = decodeURIComponent(base);
-      } catch {
-        /* keep empty */
-      }
-    }
-
-    paragraphs.forEach((p) => {
-      if (primaryLink && p.contains(primaryLink)) return;
-      const text = p.textContent.trim();
-      if (text) metaItems.push(text);
-    });
-  }
+  const cardTitle = extractedTitle || leftSectionHeading || 'Report';
 
   // --- CTA button + metadata row below description ---
   const ctaRow = document.createElement('div');
