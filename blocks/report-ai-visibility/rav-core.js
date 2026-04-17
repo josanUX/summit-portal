@@ -360,16 +360,22 @@ const RAV_PANEL_SUB_NIKE_CITATIONS = 'How Nike\'s AI citations are split across 
 export function renderPanel({ cells }) {
   const panel = document.createElement('div');
   panel.className = 'rav-panel';
+  const col2 = cells[1];
   // Title
-  const titleEl = cells[1]?.querySelector('h2,h3,h4');
+  const titleEl = col2?.querySelector('h2,h3,h4');
   if (titleEl) {
     const h = document.createElement('h3');
     h.className = 'rav-panel-title';
     h.textContent = titleEl.textContent.trim();
     panel.append(h);
   }
-  // Subtitle: paragraphs in col2
-  const subs = [...(cells[1]?.querySelectorAll('p') || [])].map((p) => p.textContent.trim()).filter(Boolean);
+  // Subtitle: direct child paragraphs in col2 only (avoids nested / chart markup)
+  const subs = col2
+    ? [...col2.children]
+      .filter((n) => n.tagName === 'P')
+      .map((p) => p.textContent.trim())
+      .filter(Boolean)
+    : [];
   if (subs.length) {
     const sub = document.createElement('p');
     sub.className = 'rav-panel-sub';
@@ -381,7 +387,7 @@ export function renderPanel({ cells }) {
     panel.append(sub);
   }
   // Chart
-  const chartData = parseChartCell(cells[2]);
+  const chartData = parseChartCell(cells[2] || null);
   const chart = renderChart(chartData);
   if (chart) {
     const cw = document.createElement('div');
@@ -440,8 +446,8 @@ export function renderCta({ cells }) {
   const left = document.createElement('div');
   left.className = 'rav-cta-left';
   left.innerHTML = cells[1]?.innerHTML || '';
-  const link = cells[2]?.querySelector('a');
-  if (link) {
+  const link = cells[2]?.querySelector('a') || cells[1]?.querySelector('a');
+  if (link && !left.contains(link)) {
     link.className = 'rav-cta-btn';
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
@@ -468,7 +474,10 @@ export function renderInsight({ cells }) {
   badge.textContent = 'Key insight';
   const content = document.createElement('div');
   content.className = 'rav-insight-content';
-  content.innerHTML = stripLeadingStrongLabel(cells[1]?.innerHTML || '');
+  const bodyHtml = cells[1]?.innerHTML?.trim()
+    ? cells[1].innerHTML
+    : (cells[2]?.innerHTML || '');
+  content.innerHTML = stripLeadingStrongLabel(bodyHtml);
   wrap.append(badge, content);
   return wrap;
 }
@@ -480,7 +489,7 @@ export function renderInsight({ cells }) {
  */
 export function parseVisibilityRows(block) {
   return [...block.querySelectorAll(':scope > div')].map((el) => ({
-    type: [...el.children][0]?.textContent.trim().toLowerCase() || '',
+    type: [...el.children][0]?.textContent.trim().toLowerCase().replace(/\s+/g, ' ') || '',
     cells: [...el.children],
   }));
 }

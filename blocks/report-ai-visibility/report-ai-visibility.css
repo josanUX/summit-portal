@@ -7,6 +7,74 @@
   --rav-negative: light-dark(var(--color-red-500), var(--color-red-300));
 }
 
+/* ── LLM visibility stat tiles (local llm-app–style “page cards”) ─────────── */
+.report-ai-visibility:not(.rav-empty-shell) .rav-stats {
+  gap: var(--spacing-m);
+  padding: var(--spacing-l) var(--spacing-l);
+  border-bottom: 2px solid light-dark(rgb(243 243 243 / 100%), #444);
+}
+
+.report-ai-visibility:not(.rav-empty-shell) .rav-stat-card {
+  border: 1px solid var(--rpt-border, var(--color-border));
+  border-right: 1px solid var(--rpt-border, var(--color-border));
+  border-radius: var(--spacing-s);
+  background: light-dark(#fff, rgb(38 38 38 / 100%));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
+}
+
+.report-ai-visibility:not(.rav-empty-shell) .rav-stat-card:last-child {
+  border-right: 1px solid var(--rpt-border, var(--color-border));
+}
+
+@media (width < 600px) {
+  .report-ai-visibility:not(.rav-empty-shell) .rav-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .report-ai-visibility:not(.rav-empty-shell) .rav-stat-card {
+    border-right: 1px solid var(--rpt-border, var(--color-border));
+  }
+}
+
+/* Performance insights — second shell + embedded report-stats (llm-app chrome) */
+.report-ai-visibility.rav-empty-shell {
+  border-radius: var(--spacing-s);
+  border: 1px solid var(--rpt-border, var(--color-border));
+  background-color: var(--rpt-insight-section-bg);
+  overflow: hidden;
+}
+
+.report-ai-visibility.rav-empty-shell .rav-container {
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  overflow: visible;
+}
+
+.report-ai-visibility.rav-empty-shell .rav-section-head {
+  min-height: 0;
+  padding: var(--spacing-s) var(--spacing-l);
+  margin-bottom: 0;
+  background: var(--color-button);
+  color: var(--color-light);
+  border-bottom: none;
+}
+
+.report-ai-visibility.rav-empty-shell .rav-section-title {
+  color: inherit;
+  font-size: var(--body-font-size-m);
+  font-weight: 700;
+}
+
+.report-ai-visibility.rav-empty-shell .rav-panels-outer {
+  padding: 0;
+}
+
+.report-ai-visibility.rav-empty-shell .rav-panels-outer > .report-stats {
+  width: 100%;
+  margin: 0;
+}
+
 /* Section title at top of card — matches report-ai-section-head / carousel tab bar chrome */
 .report-ai-visibility .rav-section-head {
   display: flex;
@@ -20,7 +88,7 @@
   margin-bottom: 0;
   background: transparent;
   border: none;
-  border-bottom: 2px solid light-dark(rgba(243, 243, 243, 1), #444);
+  border-bottom: 2px solid light-dark(rgb(243 243 243 / 100%), #444);
 }
 
 .report-ai-visibility .rav-section-title {
@@ -58,7 +126,7 @@
   border-top: none;
   border-right: none;
   border-left: none;
-  border-bottom: 2px solid light-dark(rgba(243, 243, 243, 1), #444);
+  border-bottom: 2px solid light-dark(rgb(243 243 243 / 100%), #444);
 }
 
 .report-ai-visibility .rav-stat-card {
@@ -249,7 +317,7 @@
 
 .report-ai-visibility .rav-panel-footnote {
   font-size: 12px;
-  color: light-dark(rgba(80, 80, 80, 1), #cccccc);
+  color: light-dark(rgb(80 80 80 / 100%), #ccc);
   margin: 0;
   padding-top: 10px;
   border-top: 1px solid var(--rpt-border, var(--color-border));
@@ -511,7 +579,7 @@
   width: 100%;
   padding: 16px 56px 16px 64px;
   border: 0 solid transparent;
-  border-top: 2px solid light-dark(rgba(243, 243, 243, 1), #444);
+  border-top: 2px solid light-dark(rgb(243 243 243 / 100%), #444);
 }
 
 .report-ai-visibility .rav-cta-left {
