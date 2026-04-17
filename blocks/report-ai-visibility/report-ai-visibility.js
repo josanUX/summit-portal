@@ -44,8 +44,7 @@ function reorderGapInsightBeforeCta(rows) {
 
 /**
  * Performance insights shell: section head + panels outer.
- * The following performance strip block (report-stats or legacy report-scores)
- * is moved into panels outer in decorate().
+ * The following report-scores block is moved into panels outer in decorate().
  * @param {string} sectionTitleText
  * @returns {HTMLDivElement}
  */
@@ -148,45 +147,15 @@ export default async function decorate(block) {
 
   const perfPanelsOuter = performanceShell.querySelector('.rav-panels-outer');
   if (perfPanelsOuter) {
-    const isPerformanceStrip = (el) => el && (
-      el.classList.contains('report-stats')
-      || el.classList.contains('report-scores')
-    );
-    /** Prefer dark stats strip when multiple .report-stats exist in the section */
-    const pickStats = (candidates) => {
-      const dark = candidates.find((el) => el.classList.contains('dark'));
-      return dark || candidates[0];
-    };
-
-    const collectCandidates = () => {
-      const section = block.closest('.section');
-      const inSection = section
-        ? [...section.querySelectorAll('.report-stats, .report-scores')]
-          .filter((el) => el !== block && !performanceShell.contains(el) && !el.contains(block))
-        : [];
-      if (inSection.length) return pickStats(inSection);
-
-      const forward = [];
-      let s = performanceShell.nextElementSibling;
-      while (s) {
-        if (isPerformanceStrip(s)) forward.push(s);
-        s = s.nextElementSibling;
+    let sib = performanceShell.nextElementSibling;
+    while (sib) {
+      const { nextElementSibling } = sib;
+      if (sib.classList.contains('report-scores')) {
+        perfPanelsOuter.prepend(sib);
+        break;
       }
-      if (forward.length) return forward[0];
-
-      const backward = [];
-      s = block.previousElementSibling;
-      while (s) {
-        if (isPerformanceStrip(s)) backward.push(s);
-        s = s.previousElementSibling;
-      }
-      if (backward.length) return pickStats(backward.reverse());
-
-      return null;
-    };
-
-    const strip = collectCandidates();
-    if (strip) perfPanelsOuter.prepend(strip);
+      sib = nextElementSibling;
+    }
   }
 
   const observer = new IntersectionObserver((entries) => {
