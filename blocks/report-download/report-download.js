@@ -3,7 +3,8 @@
  *
  * Authoring structure (single row, two cells):
  *   Cell 1: Bold heading paragraph | description paragraph(s)
- *   Cell 2: Link (report title + download href) | metadata paragraphs (date, pages, …)
+ *   Cell 2: Link (report title + download href) | metadata paragraphs (date, pages, …).
+ *   Paragraphs may be nested (e.g. default-content wrapper); any <p> in the cell is scanned.
  */
 export default function init(el) {
   const row = el.querySelector(':scope > div');
@@ -46,16 +47,63 @@ export default function init(el) {
   const metaItems = [];
 
   if (rightCell) {
-    rightCell.querySelectorAll(':scope p').forEach((p) => {
-      const anchor = p.querySelector('a');
-      if (anchor && !cardTitle) {
-        // First link → card title + download URL
-        cardTitle = anchor.textContent.trim();
-        downloadHref = anchor.href || '#';
-      } else {
-        const text = p.textContent.trim();
-        if (text) metaItems.push(text);
+    const paragraphs = [...rightCell.querySelectorAll('p')];
+    const linkCandidates = [...rightCell.querySelectorAll('a[href]')].filter((a) => {
+      const h = (a.getAttribute('href') || '').trim();
+      if (!h || h === '#') return false;
+      try {
+        const u = new URL(h, window.location.href);
+        return u.protocol === 'http:' || u.protocol === 'https:';
+      } catch {
+        return h.startsWith('/') || h.startsWith('./') || h.startsWith('../');
       }
+    });
+
+    /** Prefer a “document” link; fall back to first usable anchor in the cell */
+    const primaryLink = linkCandidates.find((a) => {
+      const h = (a.getAttribute('href') || '').toLowerCase();
+      return h.includes('.pdf') || h.includes('/content/') || h.includes('media_');
+    }) || linkCandidates[0];
+
+    if (primaryLink) {
+      downloadHref = primaryLink.href || '#';
+      cardTitle = primaryLink.textContent.trim();
+      if (!cardTitle) {
+        const par = primaryLink.closest('p');
+        if (par) {
+          const rest = par.cloneNode(true);
+          rest.querySelectorAll('a').forEach((a) => a.remove());
+          cardTitle = rest.textContent.trim();
+        }
+      }
+      if (!cardTitle) {
+        const prev = primaryLink.previousElementSibling;
+        if (prev && ['STRONG', 'EM', 'SPAN'].includes(prev.tagName)) {
+          cardTitle = prev.textContent.trim();
+        }
+      }
+    }
+
+    if (!cardTitle) {
+      const h = rightCell.querySelector('h2, h3, h4');
+      if (h) cardTitle = h.textContent.trim();
+    }
+
+    if (!cardTitle && downloadHref !== '#') {
+      try {
+        const { pathname } = new URL(downloadHref, window.location.href);
+        const seg = pathname.split('/').filter(Boolean).pop() || '';
+        const base = seg.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim();
+        if (base) cardTitle = decodeURIComponent(base);
+      } catch {
+        /* keep empty */
+      }
+    }
+
+    paragraphs.forEach((p) => {
+      if (primaryLink && p.contains(primaryLink)) return;
+      const text = p.textContent.trim();
+      if (text) metaItems.push(text);
     });
   }
 
