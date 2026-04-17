@@ -7,6 +7,7 @@
  *   Paragraphs may be nested (e.g. default-content wrapper); any <p> in the cell is scanned.
  *   Rows with 3+ columns use the last column as the PDF cell.
  *   A single wrapper row may nest two inner columns.
+ *   PDF card `h3` is the static phrase “Full digital performance report”.
  */
 
 /** @param {Element} row */
@@ -24,25 +25,18 @@ function resolveRowCells(row) {
   return { leftCell: cells[0], rightCell: cells[1] };
 }
 
-const GENERIC_LINK_LABEL = /^(download|pdf|click here|read more|open|here)$/i;
-
-/** @param {string} t */
-function meaningfulTitle(t) {
-  const s = (t || '').trim();
-  if (!s || GENERIC_LINK_LABEL.test(s)) return '';
-  return s;
-}
+/** Shown on `.rd-pdf-title` (always the same). */
+const PDF_CARD_HEADLINE = 'Full digital performance report';
 
 /**
  * @param {Element | undefined} rightCell
- * @returns {{ downloadHref: string, cardTitle: string, metaItems: string[] }}
+ * @returns {{ downloadHref: string, metaItems: string[] }}
  */
 function extractPdfColumn(rightCell) {
   let downloadHref = '#';
-  let cardTitle = '';
   const metaItems = [];
 
-  if (!rightCell) return { downloadHref, cardTitle, metaItems };
+  if (!rightCell) return { downloadHref, metaItems };
 
   const paragraphs = [...rightCell.querySelectorAll('p')];
   const linkCandidates = [...rightCell.querySelectorAll('a[href]')].filter((a) => {
@@ -63,66 +57,6 @@ function extractPdfColumn(rightCell) {
 
   if (primaryLink) {
     downloadHref = primaryLink.href || '#';
-    cardTitle = meaningfulTitle(primaryLink.textContent)
-      || meaningfulTitle(primaryLink.getAttribute('aria-label'))
-      || meaningfulTitle(primaryLink.getAttribute('title'));
-    const img = primaryLink.querySelector('img');
-    if (!cardTitle && img) {
-      cardTitle = meaningfulTitle(img.getAttribute('alt') || '');
-    }
-    if (!cardTitle) {
-      const par = primaryLink.closest('p');
-      if (par) {
-        const rest = par.cloneNode(true);
-        rest.querySelectorAll('a').forEach((a) => a.remove());
-        cardTitle = meaningfulTitle(rest.textContent);
-      }
-    }
-    if (!cardTitle) {
-      const prev = primaryLink.previousElementSibling;
-      if (prev && ['STRONG', 'EM', 'SPAN', 'B', 'I'].includes(prev.tagName)) {
-        cardTitle = meaningfulTitle(prev.textContent);
-      }
-    }
-    if (!cardTitle) {
-      const par = primaryLink.closest('p');
-      const prevP = par?.previousElementSibling;
-      if (prevP && prevP.tagName === 'P') {
-        const clone = prevP.cloneNode(true);
-        clone.querySelectorAll('a').forEach((a) => a.remove());
-        cardTitle = meaningfulTitle(clone.textContent);
-      }
-    }
-  }
-
-  if (!cardTitle) {
-    const strong = rightCell.querySelector('strong, b');
-    if (strong) cardTitle = meaningfulTitle(strong.textContent);
-  }
-
-  if (!cardTitle) {
-    const li = rightCell.querySelector('li');
-    if (li) {
-      const clone = li.cloneNode(true);
-      clone.querySelectorAll('a').forEach((a) => a.remove());
-      cardTitle = meaningfulTitle(clone.textContent);
-    }
-  }
-
-  if (!cardTitle) {
-    const h = rightCell.querySelector('h2, h3, h4');
-    if (h) cardTitle = meaningfulTitle(h.textContent);
-  }
-
-  if (!cardTitle && downloadHref !== '#') {
-    try {
-      const { pathname } = new URL(downloadHref, window.location.href);
-      const seg = pathname.split('/').filter(Boolean).pop() || '';
-      const base = seg.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim();
-      if (base) cardTitle = decodeURIComponent(base);
-    } catch {
-      /* keep empty */
-    }
   }
 
   paragraphs.forEach((p) => {
@@ -131,7 +65,7 @@ function extractPdfColumn(rightCell) {
     if (text) metaItems.push(text);
   });
 
-  return { downloadHref, cardTitle, metaItems };
+  return { downloadHref, metaItems };
 }
 
 export default function init(el) {
@@ -144,8 +78,6 @@ export default function init(el) {
   const left = document.createElement('div');
   left.className = 'rd-left';
 
-  let leftSectionHeading = '';
-
   if (leftCell) {
     [...leftCell.children].forEach((child) => {
       if (child.tagName === 'P') {
@@ -155,7 +87,6 @@ export default function init(el) {
           const heading = document.createElement('h2');
           heading.className = 'rd-heading';
           heading.textContent = strong.textContent.trim();
-          leftSectionHeading = heading.textContent.trim();
           left.append(heading);
           return;
         }
@@ -173,13 +104,7 @@ export default function init(el) {
   const right = document.createElement('div');
   right.className = 'rd-right';
 
-  const {
-    downloadHref,
-    cardTitle: extractedTitle,
-    metaItems,
-  } = extractPdfColumn(rightCell);
-
-  const cardTitle = extractedTitle || leftSectionHeading || 'Report';
+  const { downloadHref, metaItems } = extractPdfColumn(rightCell);
 
   // --- CTA button + metadata row below description ---
   const ctaRow = document.createElement('div');
@@ -220,7 +145,7 @@ export default function init(el) {
 
   const titleEl = document.createElement('h3');
   titleEl.className = 'rd-pdf-title';
-  titleEl.textContent = cardTitle;
+  titleEl.textContent = PDF_CARD_HEADLINE;
   card.append(titleEl);
 
   const tagEl = document.createElement('a');

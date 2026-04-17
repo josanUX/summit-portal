@@ -148,6 +148,7 @@ function parsePair(text) {
   return {
     label: parts[0] || '',
     value: parseFloat(parts[1]) || 0,
+    /** Kept for parsing; not shown in `.rav-hbar-val` (that column is numeric only). */
     suffix: parts.find((p, i) => i > 1 && !p.startsWith('#') && Number.isNaN(parseFloat(p))) || '',
     color: parts.find((p) => p.startsWith('#')) || null,
     badge: parts[4] || '',
@@ -155,14 +156,89 @@ function parsePair(text) {
   };
 }
 
+/** Default bar value mode by chart type; `horizontalbars` can override in parseChartCell. */
+const CHART_VALUE_DISPLAY = {
+  horizontalbars: 'count',
+  platformbars: 'percent',
+};
+
+/**
+ * Share-style horizontal bar rows (e.g. 78 + 20 + 1 ≈ 100%) use the same chart type as raw counts.
+ * Detect likely percentages so competitor “share” charts show % without a CMS change.
+ * @param {Array<{ value: number }>} items
+ */
+function looksLikePercentageSeries(items) {
+  const vals = items.map((d) => d.value).filter(Number.isFinite);
+  if (!vals.length) return false;
+  if (vals.some((v) => v < -1e-6 || v > 100 + 1e-6)) return false;
+  const sum = vals.reduce((a, b) => a + b, 0);
+  const max = Math.max(...vals);
+  if (max > 100 + 1e-6) return false;
+  // Mostly-complete distributions (omitted “other”); avoids tiny totals like 10+5+3.
+  return sum >= 80 && sum <= 101.5;
+}
+
+function formatCountBarValue(n) {
+  if (!Number.isFinite(n)) return '0';
+  const whole = Math.abs(n - Math.round(n)) < 1e-6;
+  if (whole) return Math.round(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const r = Math.round(n * 100) / 100;
+  return r.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+/**
+ * @param {number} n
+ * @param {number[]} seriesValues same chart’s item values (for 0–1 vs 0–100 scale)
+ */
+function formatPercentBarValue(n, seriesValues) {
+  if (!Number.isFinite(n)) return '0%';
+  const maxV = Math.max(0, ...seriesValues.filter(Number.isFinite));
+  const asShare = maxV <= 1.000001;
+  const p = asShare ? n * 100 : n;
+  const rounded = Math.round(p * 10) / 10;
+  if (Math.abs(rounded - Math.round(rounded)) < 0.05) {
+    return `${Math.round(rounded)}%`;
+  }
+  const core = rounded.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  });
+  return `${core}%`;
+}
+
+/**
+ * @param {number} n
+ * @param {'count' | 'percent'} mode
+ * @param {number[]} seriesValues
+ */
+function formatBarEndValue(n, mode, seriesValues) {
+  if (mode === 'percent') return formatPercentBarValue(n, seriesValues);
+  return formatCountBarValue(n);
+}
+
 export function parseChartCell(cell) {
   if (!cell) return null;
   const paras = [...cell.querySelectorAll('p')];
   if (!paras.length) return null;
-  const type = paras[0]?.textContent.trim().toLowerCase().replace(/\s+/g, '');
+  const first = paras[0]?.textContent.trim().toLowerCase() || '';
+  const [typeHead, ...typeFlagParts] = first.split('|').map((s) => s.trim().replace(/\s+/g, ''));
+  const type = (typeHead || '').replace(/\s+/g, '');
   if (!type) return null;
+  const chartFlags = new Set(typeFlagParts.filter(Boolean));
   const items = paras.slice(1).map((p) => p.textContent.trim()).filter(Boolean).map(parsePair);
-  return { type, items };
+
+  let valueDisplayMode = CHART_VALUE_DISPLAY[type] || 'count';
+  if (type === 'horizontalbars') {
+    if (chartFlags.has('count') || chartFlags.has('numbers')) {
+      valueDisplayMode = 'count';
+    } else if (chartFlags.has('percent') || chartFlags.has('pct')) {
+      valueDisplayMode = 'percent';
+    } else if (looksLikePercentageSeries(items)) {
+      valueDisplayMode = 'percent';
+    }
+  }
+
+  return { type, items, valueDisplayMode };
 }
 
 /**
@@ -198,32 +274,64 @@ function renderBigFigure(data) {
 }
 
 function renderHorizontalBars(data) {
-  const { items } = data;
+  const { items, valueDisplayMode = 'count' } = data;
   if (!items.length) return null;
   const rawMax = Math.max(...items.map((d) => d.value)) || 1;
+  const seriesValues = items.map((d) => d.value);
+  const showPlatformIcons = items.some((d) => hasPlatformBrandLogo(d.label));
+
   const wrap = document.createElement('div');
-  wrap.className = 'rav-hbars';
+  wrap.className = showPlatformIcons ? 'rav-hbars rav-platform-bars' : 'rav-hbars';
+
   items.forEach((d, i) => {
     const pct = (d.value / rawMax) * 100;
     const color = d.color || COLORS[i % COLORS.length];
     const row = document.createElement('div');
-    row.className = 'rav-hbar-row';
-    row.innerHTML = `
-      <span class="rav-hbar-label">${d.label}</span>
-      <div class="rav-hbar-track">
-        <div class="rav-hbar-fill" style="--bar-w:${pct}%;background:${color};transition-delay:${i * 0.08}s"></div>
-        ${d.badge ? `<span class="rav-hbar-badge">${d.badge}</span>` : ''}
-      </div>
-      <span class="rav-hbar-val">${d.value}${d.suffix}</span>`;
+    row.className = showPlatformIcons ? 'rav-hbar-row rav-platform-row' : 'rav-hbar-row';
+
+    if (showPlatformIcons) {
+      const iconWrap = document.createElement('span');
+      iconWrap.className = 'rav-platform-icon';
+      if (hasPlatformBrandLogo(d.label)) {
+        iconWrap.append(createPlatformIcon(d.label));
+      }
+      row.append(iconWrap);
+    }
+
+    const label = document.createElement('span');
+    label.className = showPlatformIcons ? 'rav-hbar-label rav-platform-label' : 'rav-hbar-label';
+    label.textContent = d.label;
+
+    const track = document.createElement('div');
+    track.className = 'rav-hbar-track';
+    const fill = document.createElement('div');
+    fill.className = 'rav-hbar-fill';
+    fill.style.setProperty('--bar-w', `${pct}%`);
+    fill.style.background = color;
+    fill.style.transitionDelay = `${i * 0.08}s`;
+    track.append(fill);
+    if (d.badge) {
+      const badge = document.createElement('span');
+      badge.className = 'rav-hbar-badge';
+      badge.textContent = d.badge;
+      track.append(badge);
+    }
+
+    const val = document.createElement('span');
+    val.className = 'rav-hbar-val';
+    val.textContent = formatBarEndValue(d.value, valueDisplayMode, seriesValues);
+
+    row.append(label, track, val);
     wrap.append(row);
   });
   return wrap;
 }
 
 function renderPlatformBars(data) {
-  const { items } = data;
+  const { items, valueDisplayMode = 'percent' } = data;
   if (!items.length) return null;
   const rawMax = Math.max(...items.map((d) => d.value)) || 1;
+  const seriesValues = items.map((d) => d.value);
   const wrap = document.createElement('div');
   wrap.className = 'rav-hbars rav-platform-bars';
   items.forEach((d, i) => {
@@ -257,7 +365,7 @@ function renderPlatformBars(data) {
 
     const val = document.createElement('span');
     val.className = 'rav-hbar-val';
-    val.textContent = `${d.value}${d.suffix}`;
+    val.textContent = formatBarEndValue(d.value, valueDisplayMode, seriesValues);
 
     row.append(iconWrap, label, track, val);
 

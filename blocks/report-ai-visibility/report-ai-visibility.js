@@ -70,6 +70,49 @@ function buildEmptyVisibilityShell(sectionTitleText) {
   return shell;
 }
 
+/**
+ * Match `.rav-panel-footnote` min-heights within each `.rav-panels` row (tallest wins).
+ * @param {Element} root
+ */
+function syncRavPanelFootnoteHeights(root) {
+  root.querySelectorAll('.rav-panels').forEach((panelsWrap) => {
+    const panels = [...panelsWrap.querySelectorAll(':scope > .rav-panel')];
+    const footnotes = panels
+      .map((panel) => panel.querySelector(':scope > .rav-panel-footnote'))
+      .filter(Boolean);
+    if (footnotes.length < 2) {
+      footnotes.forEach((fn) => { fn.style.minHeight = ''; });
+      return;
+    }
+    footnotes.forEach((fn) => { fn.style.minHeight = ''; });
+    const maxH = Math.max(...footnotes.map((fn) => fn.getBoundingClientRect().height));
+    if (maxH > 0) {
+      const px = `${Math.ceil(maxH)}px`;
+      footnotes.forEach((fn) => { fn.style.minHeight = px; });
+    }
+  });
+}
+
+/**
+ * @param {Element} block
+ */
+function setupRavPanelFootnoteHeightSync(block) {
+  let raf = 0;
+  const run = () => {
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      syncRavPanelFootnoteHeights(block);
+    });
+  };
+  requestAnimationFrame(() => requestAnimationFrame(run));
+
+  const wraps = [...block.querySelectorAll('.rav-panels')];
+  const ro = new ResizeObserver(run);
+  wraps.forEach((w) => ro.observe(w));
+  window.addEventListener('resize', run);
+}
+
 // ── Main decorator ──────────────────────────────────────────────────────────
 
 export default async function decorate(block) {
@@ -141,6 +184,7 @@ export default async function decorate(block) {
 
   block.textContent = '';
   block.append(container);
+  setupRavPanelFootnoteHeightSync(block);
 
   const performanceShell = buildEmptyVisibilityShell('Performance insights');
   block.after(performanceShell);
